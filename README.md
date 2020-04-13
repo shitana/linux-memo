@@ -13,10 +13,10 @@
 sudo usermod -a -G docker $USER
   
 # show IP adress
-docker -H swarm.priv.rec.caas.s0.:2375 inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' CONTAINER
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' CONTAINER
 
 # BASH 
-docker -H swarm.priv.rec.caas.s0.:2375 exec -it consulapibatch_consul-monitor-horsprod_1 /bin/bash
+docker exec -it consulapibatch_consul-monitor-horsprod_1 /bin/bash
 ```
 
 ## SSH
