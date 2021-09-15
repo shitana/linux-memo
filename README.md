@@ -23,7 +23,7 @@ docker exec -it consulapibatch_consul-monitor-horsprod_1 /bin/bash
 
 ``` bash
 ## Tunnelling SSH
-ssh -L 2080:10.0.3.148:8080 -L 2040:10.0.3.148:8440 master01.cassandra.prod.mapreduce.b0. -N
+ssh -L 2080:10.0.3.148:8080 -L 2040:10.0.3.148:8440 master01.MACHINE -N
 ## ignore host key check
 - ajout de l'option "-o StrictHostKeyChecking=no" à la command "scp", afin que la clef d'hôte du serveur cible soit automatiquement acceptée
 ```
@@ -426,16 +426,16 @@ sudo du -s $(ll / | egrep -v 'var|tmp|usr|^-r|^l' | awk '{print "/"$NF}' | tail 
 ``` bash
 # se connecter au master qui va bien , en user pns
 # obtenir la liste des jobs
-oozie jobs -oozie http://master001.cassandra.preprod.mapreduce.b0.:11000/oozie -localtime -filter -len 10000 status=RUNNING
+oozie jobs -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -localtime -filter -len 10000 status=RUNNING
 
 # faire un kill
-oozie job -oozie http://master001.cassandra.preprod.mapreduce.b0.:11000/oozie -kill <job--id>
+oozie job -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -kill <job--id>
 # une boucle qui fait des delete pour pns mais exclue quelques jobs 
 
-for jobID in $(oozie jobs -oozie http://master001.cassandra.preprod.mapreduce.b0.:11000/oozie -localtime -filter status=RUNNING | grep pns | egrep -v 'amily-place-stats-workflow|push-stats-workflow' | awk '{print $1}' ) 
+for jobID in $(oozie jobs -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -localtime -filter status=RUNNING | grep pns | egrep -v 'amily-place-stats-workflow|push-stats-workflow' | awk '{print $1}' ) 
 do 
   echo "kill $jobID"
-  oozie job -oozie http://master001.cassandra.prod.mapreduce.b0.:11000/oozie -kill $jobID
+  oozie job -oozie http://MACHINE1.cassandra.prod.MACHINEb0.:11000/oozie -kill $jobID
 done
 ```
 
@@ -448,19 +448,19 @@ done
 PrePROD):
 
 `screen -S ssh_tunnel`  
-`ssh -N -L 18080:127.0.0.1:8080 master001.cassandra.preprod.mapreduce.b0. -f`  
+`ssh -N -L 18080:127.0.0.1:8080 MACHINE1.cassandra.preprod.MACHINEb0. -f`  
 `#CTRL+A D (to detach from your screen)`
 
 ``` bash
 PASSWORD="le password"
-HOST=node00X.cassandra.preprod.mapreduce.b1.
+HOST=node00X.cassandra.preprod.MACHINEb1.
 ```
 
 ### List all components of a given host
 
 From your VDI (Exple PrePROD):
 
-  - hostname: node001.cassanra.preprod.mapreduce.b1.
+  - hostname: node001.cassanra.preprod.MACHINEb1.
   - Cluster:
 cassandra\_preprod
 
