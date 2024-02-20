@@ -1,4 +1,76 @@
-# Usefull Commands
+[[_TOC_]]
+
+# XLR
+
+```bash
+# Restart and check XLR
+service xl-release stop ; sleep 15 ; ps -auxf | grep -v grep | grep java || ( service xl-release start ; sleep 30 ; grep "$(date +"%Y-%m-%d %H:")"  /usr/local/appliMM/log/xl-release.log | grep 'You can now point your browser to http://xlrelease-dev.ddddddd.com/' && sudo /usr/local/appliDD/bin/plugin-manager-cli.sh)
+
+```
+
+# AWS
+
+```bash
+# AWS-SSO
+aws-sso cache
+
+# List content of a object
+aws --profile 2112121121:mtggft_Role_Fed s3api list-objects --bucket BUKETa --prefix livraison --query 'Contents[].Key'
+
+# list name , instance ID and IP of all instance that contains REGEX in name
+KEY_WORD=slm ; 
+aws --region eu-west-1 --profile 54545445:Ops_Role_Fed ec2 describe-instances --filters "Name=tag:Name,Values=*${KEY_WORD}*" "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].{InstanceId:InstanceId, Name:Tags[?Key=='Name'].Value | [0], PrivateIpAddress:PrivateIpAddress}" | jq -r '.[][] | [.InstanceId, .Name, .PrivateIpAddress] | @tsv'
+
+# Get SecurityGroup SG
+aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId,GroupName]" --output text --profil shitana --region eu-west-3
+
+# View SG detail 
+aws ec2 describe-security-groups --group-names "ec2-sg" --profil shitana --region eu-west-3 | jq
+
+```
+
+## Search instance + open console
+* [Search and connect to ec2 instance](scripts/search_instances_ec2_ip)
+* Prerequiste:
+```bash
+# AWS-SSO
+aws-sso cache
+```
+
+* Howto:
+```bash
+devops:~$ search_instances_ec2 
+Missing required option: -k <key_word>
+Usage: /usr/local/bin/search_instances_ec2 -k <key_word> [-e <environment>] [-c] [-i <IP_Address>]
+Options:
+  -i <IP_Address>: ip address
+  -k <key_word>: Specify the keyword to search
+  -e <environment>: Specify the environment (dev, prod, prep, pfi)
+  -c: Display the 'aws ssm start-session' command for each INSTANCE_ID
+
+```
+
+* Example:
+```bash
+devops:~$ search_instances_ec2 -k slm -c
+i-059c36dsdsds03e9     sldsdsdssdagent        100.196.18.220
+i-0150324242d2d173     sldsdsdsdess        100.196.154.197
+i-0e73434348940b     slm-ddsdsdss    100.196.158.219
+aws ssm start-session --profile 54545445:Ops_Role_Fed  --target i-059c36128e1620903e9 #slRE20-awa-agent
+aws ssm start-session --profile 54545445:Ops_Role_Fed  --target i-0150d2df6c2221d2d173 #slREh-process
+aws ssm start-session --profile 54545445:Ops_Role_Fed  --target i-0e731087ba223478940b #slRERrocess
+```
+
+# Usefull Ribiti
+
+## PROXMOX
+
+```bash 
+# Get VMs IP:
+for vm in $(qm list  | grep runni | awk '{print $1}'); do echo "VM ID: $vm ; VM NAME: $(qm list | grep $vm | awk '{print $2}')";  qm guest cmd $vm network-get-interfaces | grep -E 'name|"ip-address"|hardware-address'; done
+
+for id in $(qm list | grep runn | awk '{print $1}'); do echo "$(qm list | grep $id | awk '{print $2}') "; qm guest cmd $id network-get-interfaces | jq '.[]| .name, ."ip-addresses"[0]."ip-address"' ; done | grep -E 'shopt|ens' -A1 | grep -v lo
+```
 
 ## ENCODAGE
 
@@ -11,28 +83,30 @@
 ``` bash
 #Fix using docker only with sudo
 sudo usermod -a -G docker $USER
+
+# Check Open port inside docker container
+sudo nsenter -t $(docker inspect -f '{{.State.Pid}}' container_name_or_id) -n netstat
   
 # show IP adress
-docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' CONTAINER
+docker -H MACHINE:2375 inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' CONTAINER
 
 # BASH 
-docker exec -it consulapibatch_consul-monitor-horsprod_1 /bin/bash
+docker -H MACHINE:2375 exec -it consulapibatch_consul-monitor-horsprod_1 /bin/bash
+
+# IP ADD
+for c in $(docker ps | awk '{ print $NF}' | grep -v NAME); do echo "######### $c ###############"; docker inspect $c | grep -B2 IPv4Address; echo "###################" ; done
 ```
 
 ## SSH
 
 ``` bash
 ## Tunnelling SSH
-ssh -L 2080:10.0.3.148:8080 -L 2040:10.0.3.148:8440 master01.MACHINE -N
+ssh -L 2080:10.0.3.148:8080 -L 2040:10.0.3.148:8440 master01.cassandra.prod.mapreduce.b0. -N
 ## ignore host key check
 - ajout de l'option "-o StrictHostKeyChecking=no" à la command "scp", afin que la clef d'hôte du serveur cible soit automatiquement acceptée
 ```
 
-## HDFS
 
-  - <http://hebex-tickets.orangeportails.net/vue_ticket.php?ticket_id=106590&onglet=0>
-
-<!-- end list -->
 
 ``` bash
 ## Nettoyage du HDFS
@@ -95,15 +169,40 @@ manage_src_list__role:
 # Update Submodul
 git submodule foreach git pull origin master
 
-Mettre à jour le depot  en local
+# Mettre à jour le depot  en local
 git submodule update --init --recursive 
+
+# Delete remote branch
+for b in $(git branch --list -a | grep "KEY_WORD" | sed 's,remotes/origin/,,g' | sort | uniq); do
+   git checkout $b && git push origin --delete $b && git checkout staging && git branch -D $b; 
+done
 ```
 
 ## LiniWini
 
+### Display interface and their IP Address:
+
+```bash
+for int in $(echo $(ifconfig | grep flag |grep -v Loopback | cut -f1 -d":")); do  echo -e "Interface: $int $(/sbin/ifconfig $int | grep "inet " | awk '{print $2}')"; done
+
+for int in $(echo `/sbin/ifconfig | grep Link |grep -v Loopback | cut -f1 -d" "`); do
+ echo -e "Interface: $int\t=>\t`/sbin/ifconfig $int | grep "inet addr" | cut -d":" -f2 | cut -d" " -f1`";
+done
+
+for h in $(cat hosts | grep node02.inf | awk {'print $2}'); do echo "$h";  ssh vmtest$i.node02.infraplus.net 'for int in $(echo $(ifconfig | grep flag |grep -v Loopback | cut -f1 -d":")); do  echo -e "Interface: $int $(/sbin/ifconfig $int | grep "inet " | awk "{print $2}")"; done' ; done
+```
+
+### process
+```bash
+# Check usage for process every X Seconde
+pidstat -h -r -u -v -p PID,PID,PID,... X
+while sleep 1; do ps --no-headers -o '%cpu,%mem' -p "PID"; done
+top -b -n 1 -p PID
+```
+
 ### CRON
 
-``` bash
+```bash
 m h dom mon dow user  command
 
 *   any value
@@ -164,6 +263,14 @@ sed ':a;N;$!ba;s/\n/ /g' /tmp/test
 ### some command
 
 ``` bash
+# Random password
+tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo ''
+
+# CREATE protected zipfile
+alias randompassword="tr -dc A-Za-z0-9 </dev/urandom | head -c 13 ; echo ''"
+PASSWORD=$(randompassword) && zip --password=$PASSWORD list_inscrit.zip Boulot/{extractDataUser-202105202246.csv,resultat_select_etoile-202105202247.csv} && echo $PASSWORD
+
+
 # QUIT TELNET SESSION
 Ctrl + Alt Gr + ]
 then type "quit"
@@ -234,10 +341,6 @@ dd if=/dev/urandom of=/tmp/test_cft_`date +"%Y%m%d"` bs=1k count=1000
 # unmount NFS dans FSTAB:
 cat /etc/fstab | grep nfs | awk '{ print  "umount " $2 }' 
 
-# Display interface and their IP Address:
-for int in $(echo `/sbin/ifconfig | grep Link |grep -v Loopback | cut -f1 -d" "`); do
- echo -e "Interface: $int\t=>\t`/sbin/ifconfig $int | grep "inet addr" | cut -d":" -f2 | cut -d" " -f1`";
-done
 
 # Add Ip address
 ip address add [ip]/[mask-digits] dev [nic]
@@ -314,6 +417,7 @@ readlink -f /usr/bin/java | sed "s:/bin/java::"
 openssl req -in meta4u.qualif.csr.pem -noout -text
 # Selfsigned
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout mysitename.key -out mysitename.crt
+sudo openssl req -newkey rsa:4096 -x509 -sha256 -days 3650 -nodes -out gitonyvago.infraplus.net.crt -keyout gitonyvago.infraplus.net.key -subj "/C=FR/ST=Antibes/L=Antibes/O=Infraplus Consulting/OU=IT/CN=gitonyvago.infraplus.net"
 
 # Print from Nth to last row:
 awk '{for(i=2;i<=NF;i++){printf "%s ", $i}; printf "\n"}'  
@@ -391,18 +495,112 @@ Example: Use IP instead of hostname (some machines doesn't support DNS
 resolving)
 
 ``` bash
-./test_port es001.prod.cpark.ccl.b0. 9200
-2017-12-14 11:31:05: The port 9200 on host es001.prod.cpark.ccl.b0. is OPEN.
+./test_port MACHINE 9200
+2017-12-14 11:31:05: The port 9200 on host MACHINE is OPEN.
 
-./test_port es001.prod.cpark.ccl.b0. 9201
-2017-12-14 11:31:05: The port 9201 on host es001.prod.cpark.ccl.b0. is not reachable: /dev/tcp/es001.prod.cpark.ccl.b0./9201.
+./test_port MACHINE 9201
+2017-12-14 11:31:05: The port 9201 on host MACHINE is not reachable: /dev/tcp/MACHINE/9201.
 ```
+
+## Add Swap
+
+``` bash
+dd if=/dev/zero of=/var/lib/vz/swap_file bs=1024 count=16777216
+chmod 600 /var/lib/vz/swap_file
+mkswap /var/lib/vz/swap_file
+swapon /var/lib/vz/swap_file
+```
+
+# Python
+## Virtualenv
+### installation 
+``` bash
+sudo apt-get update
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt install python3.9 python3-pip pip python3-venv python3-virtualenv python2 python2-pip-whl python2-setuptools-whl -y
+```
+
+### Use case : creation des virtualenv **Python 2**
+* creation de virtual env 
+```bash
+mkdir ~/virtualenvs/
+cd ~/virtualenvs/
+virtualenv --python=python2 python2
+```
+
+* Utiliser le virtualenv python2
+```bash
+# Check pip / python version before activation of virtenv python2
+ubuntu@ip-10-196-87-76:~/virtualenvs$ python --version
+Command 'python' not found, 
+
+ubuntu@ip-10-196-87-76:~$ pip --version
+pip 22.0.2 from /usr/lib/python3/dist-packages/pip (python 3.10)
+
+# Activate python2 venv
+ubuntu@ip-10-196-87-76:~$ source ~/virtualenvs/python2/bin/activate
+(python2) ubuntu@ip-10-196-87-76:~$ 
+
+# Check pip version after activation of virtenv python2
+(python2) ubuntu@ip-10-196-87-76:~/virtualenvs$ python --version
+Python 2.7.18
+
+(python2) ubuntu@ip-10-196-87-76:~$ pip --version
+pip 20.3.4 from /home/ubuntu/virtualenvs/python2/lib/python2.7/site-packages/pip (python 2.7)
+```
+
+### Use case : creation des virtualenv **par version de Ansible**
+```bash
+ubuntu@ip-10-196-87-76:$ cd ~/virtualenvs/
+ubuntu@ip-10-196-87-76:~/virtualenvs$ virtualenv ansible2.9
+
+ubuntu@ip-10-196-87-76:~/virtualenvs$ source ~/virtualenvs/ansible2.9/bin/activate
+(ansible2.9) ubuntu@ip-10-196-87-76:~/virtualenvs$ python3 -m pip install --upgrade pip
+.....
+.....
+Successfully installed pip-23.0
+
+(ansible2.9) ubuntu@ip-10-196-87-76:~/virtualenvs$ python3 -m pip install ansible==2.9
+....
+....
+Successfully built ansible
+Installing collected packages: PyYAML, pycparser, MarkupSafe, jinja2, cffi, cryptography, ansible
+Successfully installed MarkupSafe-2.1.2 PyYAML-6.0 ansible-2.9.0 cffi-1.15.1 cryptography-39.0.1 jinja2-3.1.2 pycparser-2.21
+```
+
+# TERRAFORM
+``` bash
+# Get DNS from terraform show output json
+terraform show --json | jq '.values.root_module.resources[] | .values.public_dns'
+```
+
+# ES
+``` bash
+#List index:
+curl -s -XGET ES_NODE:9200/_cat/indices?format=json | jq '.'
+curl -s -XGET "ES_NODE:9200/_cat/indices?v"
+
+#List index sorted by SIZE
+curl -s -XGET "ES_NODE:9200/_cat/indices?pretty&v&s=store.size"
+
+#Delete index
+curl -XDELETE $ES_NODE:9200/INDEX_NAME
+
+#Delete alias
+ curl -XPOST $ES_NODE:9200/_aliases -d '
+{
+    "actions" : [
+        { "add" : { "index" : "cliper_date", "alias" : "cliper_alias" } }
+    ]
+}'
+
+``` 
 
 # CONSUL
 
 ``` bash
 #Check container
-docker  -H swarm.priv.rec.caas.s0.:2375 ps | awk '{print $NF}' | grep '/consul'
+docker  -H MACHINE:2375 ps | awk '{print $NF}' | grep '/consul'
 
 # Manage VIP
 ## Show VIP
@@ -426,16 +624,16 @@ sudo du -s $(ll / | egrep -v 'var|tmp|usr|^-r|^l' | awk '{print "/"$NF}' | tail 
 ``` bash
 # se connecter au master qui va bien , en user pns
 # obtenir la liste des jobs
-oozie jobs -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -localtime -filter -len 10000 status=RUNNING
+oozie jobs -oozie http://MACHINE_OOZIE:11000/oozie -localtime -filter -len 10000 status=RUNNING
 
 # faire un kill
-oozie job -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -kill <job--id>
+oozie job -oozie http://MACHINE_OOZIE:11000/oozie -kill <job--id>
 # une boucle qui fait des delete pour pns mais exclue quelques jobs 
 
-for jobID in $(oozie jobs -oozie http://MACHINE1.cassandra.preprod.MACHINEb0.:11000/oozie -localtime -filter status=RUNNING | grep pns | egrep -v 'amily-place-stats-workflow|push-stats-workflow' | awk '{print $1}' ) 
+for jobID in $(oozie jobs -oozie http://MACHINE_OOZIE:11000/oozie -localtime -filter status=RUNNING | grep pns | egrep -v 'amily-place-stats-workflow|push-stats-workflow' | awk '{print $1}' ) 
 do 
   echo "kill $jobID"
-  oozie job -oozie http://MACHINE1.cassandra.prod.MACHINEb0.:11000/oozie -kill $jobID
+  oozie job -oozie http://master001.cassandra.prod.mapreduce.b0.:11000/oozie -kill $jobID
 done
 ```
 
@@ -448,19 +646,19 @@ done
 PrePROD):
 
 `screen -S ssh_tunnel`  
-`ssh -N -L 18080:127.0.0.1:8080 MACHINE1.cassandra.preprod.MACHINEb0. -f`  
+`ssh -N -L 18080:127.0.0.1:8080 MACHINE_OOZIE -f`  
 `#CTRL+A D (to detach from your screen)`
 
 ``` bash
 PASSWORD="le password"
-HOST=node00X.cassandra.preprod.MACHINEb1.
+HOST=node00X.AMBARI_NODE
 ```
 
 ### List all components of a given host
 
 From your VDI (Exple PrePROD):
 
-  - hostname: node001.cassanra.preprod.MACHINEb1.
+  - hostname: node001.cassanra.preprod.mapreduce.b1.
   - Cluster:
 cassandra\_preprod
 
@@ -478,7 +676,7 @@ curl -u "admin:$PASSWORD" -H "X-Requested-By: ambari" -X GET "http://127.0.0.1:1
 
 ``` bash
 PASSWORD="le password"
-HOST=node00X.cassandra.preprod.mapreduce
+HOST=node00X.AMBARI_NODE
 COMPONENT="le composant"
 curl -u "admin:$PASSWORD" -H "X-Requested-By: ambari" -X PUT -d '{"HostRoles": {"state": "INSTALLED"}}' \
 "http://127.0.0.1:18080/api/v1/clusters/cassandra_preprod/hosts/$HOST/host_components/$COMPONENT"
@@ -488,7 +686,7 @@ curl -u "admin:$PASSWORD" -H "X-Requested-By: ambari" -X PUT -d '{"HostRoles": {
 
 ``` bash
 PASSWORD="le password"
-HOST=node00X.cassandra.preprod.mapreduce
+HOST=node00X.AMBARI_NODE
 COMPONENT="le composant"
 curl -u "admin:$PASSWORD" -H "X-Requested-By: ambari" -X PUT -d '{"HostRoles": {"state": "STARTED"}}' \
 "http://127.0.0.1:18080/api/v1/clusters/cassandra_preprod/hosts/$HOST/host_components/$COMPONENT"
@@ -545,7 +743,7 @@ done
 
 # IPTABLES
 
-``` bash
+```bash
 iptables -D POSTROUTING 2 
 iptables -D PREROUTING 2 
 iptables -L -v -n --line-numbers 
@@ -555,4 +753,19 @@ iptables -t masquerade -D POSTROUTING 2
 iptables -t nat -A PREROUTING -i vmbr0 -p tcp --dport 8080 -j DNAT --to 192.168.10.2:8080 
 iptables -t nat -D POSTROUTING 2 
 iptables -t nat -D PREROUTING 2 
+```
+
+# POSTGRES
+## generate backup script
+```bash
+sudo su - postgres
+> /opt/db/ops/script_backup.sh; for db in $(psql -l | grep ' postg^Cs '| grep _rec | awk '{print $1}'); do echo "pg_dump $db > /var/opt/log/pgsql/BACKUP/backup_${db}_\$(date +\"%Y%m%d\").bak" >> /opt/db/ops/script_backup.sh ; echo "gzip /var/opt/log/pgsql/BACKUP/backup_${db}_$(date +"%Y%m%d").bak " >> /opt/db/ops/script_backup.sh; done
+```
+
+## restore backup
+
+```bash
+dropdb $DB_NAME
+createdb $DB_NAME
+psql $d < backup_${DB_NAME}_$(date +"%Y%m%d").bak 
 ```
