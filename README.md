@@ -615,9 +615,8 @@ vhype 10.98.231.97:443 --container --site sophia --environment rec remove 172.22
 ## Sonde disk
 
 ``` bash
-# Check Disk / on master:
-sudo du -s $(ll / | egrep -v 'var|tmp|usr|^-r|^l' | awk '{print "/"$NF}' | tail -n +4) 2>/dev/null | sort -n
-```
+# Check Disk:
+du -hs $(ll / | egrep -v '/mnt|srv|dev|sys|run|^-r|^l' | awk '{print "/"$NF}' | tail -n +4) 2>/dev/null | sort -h```
 
 ## OOZIE Usefull commands
 
